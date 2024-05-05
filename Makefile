@@ -1,4 +1,12 @@
-launch12:
+create-venv:
+	@pyenv virtualenv 3.7.13 ableton-control-surface-faderfox-venv-3.7.13
+	#pyenv activate ableton-control-surface-faderfox-venv-3.7.13
+
+install-deps:
+	@pip install --upgrade pip
+	@pip install -r requirements.txt
+
+launch:
 	@open /Applications/Ableton*12*
 
 kill:
@@ -28,8 +36,6 @@ format:
 install-deps:
 	@pip install -r requirements.txt
 
-restart-12: kill copy-controller-script launch12
-
-restart: restart-12
+restart: kill copy-controller-script launch
 
 build: lint-fix lint

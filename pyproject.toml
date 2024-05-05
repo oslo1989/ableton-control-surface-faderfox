@@ -1,0 +1,28 @@
+[project]
+name = "ableton-control-surface-faderfox"
+version = "0.0.2"
+description = ""
+dynamic = ["dependencies"]
+requires-python=">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Multimedia :: Sound/Audio :: MIDI"
+]
+
+[tool.ruff]
+select = ["E", "F", "B", "W", "I" ,"UP", "ANN", "BLE", "FBT", "A", "COM", "C4", "DTZ", "PIE", "Q", "RET", "SIM", "PL", "RUF"]
+extend-select = ["I"]
+fixable = ["ALL"]
+line-length = 120
+target-version = "py37"
+
+[tool.setuptools.dynamic]
+dependencies = {file = ["requirements.txt"]}
+
+[tool.mypy]
+ignore_missing_imports = true
+follow_imports = "silent"
+disallow_untyped_defs = true

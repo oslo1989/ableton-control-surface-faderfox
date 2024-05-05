@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from typing import Any
+import logging
+from typing import Any, TypeVar
 
 import Live
 from ableton.v2.base import const, depends, inject
 from ableton.v2.control_surface import MIDI_CC_TYPE, MIDI_NOTE_TYPE, ControlSurface
 from ableton.v2.control_surface.components import MixerComponent, SessionRingComponent, TransportComponent
 from ableton.v2.control_surface.elements import ButtonElement, EncoderElement
-from FaderFoxOslo1989Surface.skin_default import default_skin
 from Live.Song import Song
 from Live.Track import Track
-import logging
+
+from FaderFoxOslo1989Surface.skin_default import default_skin
+
+MIDI_MAX_VALUE = 127
 
 logging.basicConfig(
     level=logging.INFO,
@@ -22,23 +25,42 @@ logging.basicConfig(
 
 logger = logging.getLogger("FaderFoxOslo1989Surface")
 
+T = TypeVar("T", bound=object)
+
+QUARTER = 0.25
+HALF = 0.5
+THREE_QUARTERS = 0.75
+FIRST_BEAT = 1
+SECOND_BEAT = 2
+THIRD_BEAT = 3
+
+
 def numbers(base: int, base_midi_channel: int, num_tracks: int) -> list[tuple[int, int, int]]:
     return [(index, base_midi_channel + (index // 8), base + (index % 8)) for index in range(num_tracks)]
 
+
 def index_of(ls: list[T], obj: T) -> int:
-    idx = 0
-    for el in ls:
+    for idx, el in enumerate(ls):
         if el == obj:
             return idx
-        idx += 1
     return -1
+
 
 class TrackSelectEncoder(EncoderElement):
     def __init__(
-            self, song: Song, midi_type: int, midi_channel: int, midi_identifier: int, **k: dict[str, Any]
+        self,
+        song: Song,
+        midi_type: int,
+        midi_channel: int,
+        midi_identifier: int,
+        **k: dict[str, Any],
     ) -> None:
         super().__init__(
-            midi_type, midi_channel, midi_identifier, Live.MidiMap.MapMode.relative_smooth_two_compliment, **k
+            midi_type,
+            midi_channel,
+            midi_identifier,
+            Live.MidiMap.MapMode.relative_smooth_two_compliment,
+            **k,
         )
         self.song = song
         self.song.view.add_selected_track_listener(self.on_selected_track_changed)
@@ -65,7 +87,7 @@ class TrackSelectEncoder(EncoderElement):
             self.song.view.selected_track = self.song.tracks[-1]
             return
         inc = 0
-        if value == 127 and sel_idx > 0:
+        if value == MIDI_MAX_VALUE and sel_idx > 0:
             inc = -1
         elif value == 1 and sel_idx < len(self.song.tracks) - 1:
             inc = 1
@@ -77,7 +99,7 @@ class TrackSelectEncoder(EncoderElement):
 
 @depends(skin=None)
 def create_button(channel: int, identifier: int, **k: dict[str, Any]) -> ButtonElement:
-    return ButtonElement(True, MIDI_NOTE_TYPE, channel, identifier, **k)
+    return ButtonElement(True, MIDI_NOTE_TYPE, channel, identifier, **k)  # noqa: FBT003
 
 
 def create_encoder(channel: int, identifier: int) -> EncoderElement:
@@ -110,7 +132,7 @@ def send_row_base(base_channel: int, base_identifiers: list[int], num_tracks: in
 
 
 class FaderFoxMixerComponent(MixerComponent):
-    def __init__(self, parameter_encoders: list[EncoderElement], *a: list[Any], **k: dict[str, Any]):
+    def __init__(self, parameter_encoders: list[EncoderElement], *a: list[Any], **k: dict[str, Any]) -> None:
         super().__init__(*a, **k)
         self._parameter_encoders = parameter_encoders
         self._reassign_tracks()
@@ -121,7 +143,7 @@ class FaderFoxMixerComponent(MixerComponent):
             track: Track = self._channel_strips[s].track
             if track.devices:
                 device = track.devices[0]
-                if device.parameters and len(device.parameters) > 1:
+                if device.parameters and len(device.parameters) > 1:  # noqa:SIM102
                     # just a small workaround since this method is also called
                     # when the mixer is created and the _parameter_encoders are not yet set
                     # since they are created in the constructor
@@ -130,7 +152,7 @@ class FaderFoxMixerComponent(MixerComponent):
 
 
 class FaderFoxSurface(ControlSurface):
-    def __init__(self, c_instance: Any) -> None:
+    def __init__(self, c_instance: ControlSurface) -> None:
         super().__init__(c_instance)
         self.c_instance = c_instance
         self._num_tracks = 11
@@ -153,7 +175,8 @@ class FaderFoxSurface(ControlSurface):
                     num_scenes=self._num_scenes,
                 )
                 self._mixer = FaderFoxMixerComponent(
-                    encoder_base(12, 8, self._num_tracks), tracks_provider=self._session_ring
+                    encoder_base(12, 8, self._num_tracks),
+                    tracks_provider=self._session_ring,
                 )
                 self._transport = TransportComponent()
                 self._mixer.master_strip().set_volume_control(create_encoder(13, 43))
@@ -197,7 +220,7 @@ class FaderFoxSurface(ControlSurface):
 
     def _song_time_changed(self) -> None:
         if (self.song.current_song_time < self._last_song_time) or (
-                int(self.song.current_song_time) > int(self._last_song_time)
+            int(self.song.current_song_time) > int(self._last_song_time)
         ):
             self._quarter_beat = int(self.song.current_song_time) % 4 + 1
             if self._quarter_beat == 1:
@@ -206,13 +229,13 @@ class FaderFoxSurface(ControlSurface):
             self._sixteenth_beat = 1
             self._trigger_quarter_beat_listeners()
             self._trigger_sixteenth_beat_listeners()
-        if self.song.current_song_time > 0.25 and self._sixteenth_beat == 1:
+        if self.song.current_song_time > QUARTER and self._sixteenth_beat == FIRST_BEAT:
             self._sixteenth_beat = 2
             self._trigger_sixteenth_beat_listeners()
-        elif self.song.current_song_time > 0.5 and self._sixteenth_beat == 2:
+        elif self.song.current_song_time > HALF and self._sixteenth_beat == SECOND_BEAT:
             self._sixteenth_beat = 3
             self._trigger_sixteenth_beat_listeners()
-        elif self.song.current_song_time > 0.75 and self._sixteenth_beat == 3:
+        elif self.song.current_song_time > THREE_QUARTERS and self._sixteenth_beat == THIRD_BEAT:
             self._sixteenth_beat = 4
             self._trigger_sixteenth_beat_listeners()
 

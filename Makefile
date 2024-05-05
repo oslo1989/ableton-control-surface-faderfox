@@ -3,8 +3,7 @@ create-venv:
 	#pyenv activate ableton-control-surface-faderfox-venv-3.7.13
 
 install-deps:
-	@pip install --upgrade pip
-	@pip install -r requirements.txt
+	@pip install --upgrade pip && pip install -r requirements.txt
 
 launch:
 	@open /Applications/Ableton*12*
@@ -33,8 +32,7 @@ lint:
 format:
 	@ruff format FaderFoxOslo1989Surface
 
-install-deps:
-	@pip install -r requirements.txt
+lint-format: lint-fix format lint
 
 restart: kill copy-controller-script launch
 
